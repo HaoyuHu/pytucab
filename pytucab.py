@@ -67,7 +67,7 @@ def latest_date():
 		month = str(month)
 	if day in range(1, 10):
 		day = '0' + str(day)
-	date = str(year) + month + day
+	date = str(year) + str(month) + str(day)
 	return date
 
 #########################################################
