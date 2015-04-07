@@ -137,7 +137,7 @@ def cab_login(username, password):
 	if re.search('登录失败', ret) != None:
 		print ('YOUR USERNAME OR PASSWORD IS INCORRECT, OR YOUR USER-ACCOUNT NEEDS ACTIVATION.')
 		sys.exit(1)
-	
+
 	nm_dp = re.findall('[\u4e00-\u9fa5]+', ret)
 	std_id = re.findall('\d{10}', ret)
 	phone = re.findall('\d{11}', ret)
