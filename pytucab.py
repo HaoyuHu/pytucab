@@ -13,6 +13,7 @@ import getpass, re, getopt
 import time, sys, codecs, os
 
 version = '1.0'
+m = [[31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31], [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]]
 #########################################################
 #					File I/O helper						#
 #########################################################
@@ -38,8 +39,27 @@ def time_is_correct(s, e):
 	else:
 		return False
 
+def date_is_correct(date):
+	if len(date) != 8:
+		return False
+	index = is_leap(int(date[0:4]))
+	month = int(date[4:6])
+	if month < 1 or month > 12:
+		return False
+	day = int(date[6:8])
+	if day < 1 or day > m[index][month-1]:
+		return False
+	return True
+
 def get_response(url):
-	response = urllib.request.urlopen(url)
+	try:
+		response = urllib.request.urlopen(url)
+	except urllib.error.HTTPError as e:
+		print ('THE SERVER COULD NOT FULFILL THE REQUEST, PLEASE CHECK YOUR NETWORK')
+		sys.exit(1)
+	except urllib.error.URLError as e:
+		print ('WE FAILED TO REACH A SERVER, PLEASE CHECK YOUR NETWORK')
+		sys.exit(1)
 	return response.read().decode()
 
 def is_leap(year):
@@ -49,7 +69,6 @@ def is_leap(year):
 		return 1
 
 def latest_date():
-	m = [[31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31], [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]]
 	date = time.strftime('%Y %m %d')
 	year, month, day = date.split(' ')
 	year, month, day = int(year), int(month), int(day)
@@ -269,8 +288,15 @@ def cab_apply(s, e, date):
 
 		#request
 		request = urllib.request.Request(url, post_data.encode())
-		response = urllib.request.urlopen(request)
-		
+		try:
+			response = urllib.request.urlopen(request)
+		except urllib.error.HTTPError as e:
+			print ('THE SERVER COULD NOT FULFILL THE REQUEST, PLEASE CHECK YOUR NETWORK')
+			sys.exit(1)
+		except urllib.error.URLError as e:
+			print ('WE FAILED TO REACH A SERVER, PLEASE CHECK YOUR NETWORK')
+			sys.exit(1)
+
 		#found or not
 		is_found, rec = cab_query(False, date)
 		if is_found:
@@ -443,7 +469,7 @@ def pytucab():
 			ed = input('end time: ')
 			if ed != '':
 				e = ed
-			if not time_is_correct(s, e):
+			if not time_is_correct(s, e) or not date_is_correct(date):
 				is_correct = False
 				print ('INPUT ERROR!\n')
 
