@@ -1,18 +1,17 @@
-
 #############################################################
 #							Welcome							#
 #	Tsinghua University Lib-reservation System in Python	#
-#						 Version: v1.0 						#
+#						 Version: v1.2						#
 #						Date: 2015/04/07					#
 #			By: Haoyu hu	Email: im@huhaoyu.com			#
 #				Address: Tsinghua University				#
 #############################################################
 
-import http.cookiejar, urllib.request, urllib.parse
+import http.cookiejar, urllib.request, urllib.parse, urllib.error
 import getpass, re, getopt
 import time, sys, codecs, os
 
-version = '1.0'
+version = '1.2'
 m = [[31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31], [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]]
 #########################################################
 #					File I/O helper						#
@@ -39,16 +38,43 @@ def time_is_correct(s, e):
 	else:
 		return False
 
-def date_is_correct(date):
+def date_is_correct(date, limit_date):
 	if len(date) != 8:
 		return False
+	
 	index = is_leap(int(date[0:4]))
 	month = int(date[4:6])
 	if month < 1 or month > 12:
 		return False
+	
 	day = int(date[6:8])
 	if day < 1 or day > m[index][month-1]:
 		return False
+
+	curr_date = time.strftime('%Y%m%d')
+	curr = time.strptime(curr_date, '%Y%m%d')
+	reservation = time.strptime(date, '%Y%m%d')
+	limit = time.strptime(limit_date, '%Y%m%d')
+	
+	def check(day1, day2):
+		if day1.tm_year < day2.tm_year:
+			return False
+		elif day1.tm_year > day2.tm_year:
+			return True
+
+		if day1.tm_mon < day2.tm_mon:
+			return False
+		elif day1.tm_mon > day2.tm_mon:
+			return True
+
+		if day1.tm_mday < day2.tm_mday:
+			return False
+		else:
+			return True
+
+	if not check(reservation, curr) or not check(limit, reservation):
+		return False
+
 	return True
 
 def get_response(url):
@@ -238,13 +264,14 @@ def cab_query(do_display, date):
 #				Main Application Modules				#
 #########################################################
 
-rooms = ['F2-18', 'F2-19', 'F2-15', 'F2-14', 'F2-22', 'F2-23', 'F2-24', 'F2-10', 'F2-16', 'F2-17', 'F2-20', 'F2-21', 'F2-13', 'F2-11', 'F2-29', 'F2-30']
-rm_id = ['10384', '10388', '10366', '10360', '10400', '10404', '10408', '10344', '10370', '10380', '10392', '10396', '10352', '10348', '10412', '10416']
+rooms = ['F2-18', 'F2-19', 'F2-15', 'F2-14', 'F2-22', 'F2-23', 'F2-24', 'F2-10', 'F2-16', 'F2-17', 'F2-20', 'F2-21', 'F2-13', 'F2-11', 'F2-29', 'F2-30', 'F2-08', 'F2-09', 'F2-31', 'F2-32', 'F2-33', 'F2-34', 'F2-35', 'F2-36', 'F3-05', 'F3-06', 'F3-07', 'F3-08', 'F3-13', 'F3-14', 'F3-15', 'F3-16', 'F3-17', 'F3-18', 'F3-19', 'F3-20', 'F3-21', 'F3-22', 'F3-23', 'F3-24', 'F3-30', 'F3-31', 'F3-32', 'F3-33', 'F3-34', 'F3-35', 'F3-36', 'F3-37']
+rm_id = ['10384', '10388', '10366', '10360', '10400', '10404', '10408', '10344', '10370', '10380', '10392', '10396', '10352', '10348', '10412', '10416', '10331', '10340', '10420', '10424', '10428', '10432', '10436', '10440', '10444', '10450', '10454', '10458', '10462', '10466', '10470', '10474', '10478', '10482', '10486', '10490', '10494', '10498', '10502', '10506', '10510', '10514', '10518', '10522', '10526', '10530', '10534', '10538']
 
-def read_post_data(room_id, date, start):
+def read_post_data(room_id, floor, date, start):
 	url = 'http://cab.hs.lib.tsinghua.edu.cn/ClientWeb/xcus/ic/space_Resvset.aspx?'
-	info = {'devkind': '10310', 'dev': room_id, 'date': date, 'time': start, 'labid': '10319'}
-	url = url + urllib.parse.urlencode(info)
+	info = [{'devkind': '10310', 'dev': room_id, 'date': date, 'time': start, 'labid': '10319'},
+	{'devkind': '10312', 'dev': room_id, 'date': date, 'time': start, 'labid': '10321'}]
+	url = url + urllib.parse.urlencode(info[floor])
 	ret = get_response(url)
 	strlist = re.findall('__VIEWSTATE.+?/>', ret)
 	ret = strlist[0]
@@ -270,16 +297,19 @@ def cab_apply(s, e, date):
 	print ('CAB-SYSTEM IS SEARCHING FOR THE BEST READING-ROOM, PLEASE WAIT A MOMENT...')
 	for i in range(len(rooms)):
 		#prepare url
+		print ('Now searching for room %s...\r' %rooms[i], end = '')
 		room_id = rm_id[i]
-		info = {'devkind': '10310', 'dev': room_id, 'date': date, 'time': s, 'labid': '10319'}
+		floor = int(rooms[i][1]) - 2
+		info = [{'devkind': '10310', 'dev': room_id, 'date': date, 'time': s, 'labid': '10319'},
+		{'devkind': '10312', 'dev': room_id, 'date': date, 'time': s, 'labid': '10321'}]
 		url = 'http://cab.hs.lib.tsinghua.edu.cn/ClientWeb/xcus/ic/space_Resvset.aspx?'
-		url += urllib.parse.urlencode(info)
+		url += urllib.parse.urlencode(info[floor])
 
 		start = re.sub(':', '', s)
 		end = re.sub(':', '', e)
 
 		#prepare post_data
-		post = urllib.parse.urlencode({'__VIEWSTATE': read_post_data(room_id, date, s)})
+		post = urllib.parse.urlencode({'__VIEWSTATE': read_post_data(room_id, floor, date, s)})
 		dpart1 = '__EVENTTARGET=Sub&__EVENTARGUMENT=&'
 		dpart2 = '&__VIEWSTATEGENERATOR=09754CED&open_start=08%3A00&open_end=22%3A00&latest=0&earliest=2880&min=30&max=240&t_unit=10&need_file=&old_start=&old_end=&cls_time=&ddlHourStart='
 		dpart3 = '&ddlHourEnd='
@@ -458,8 +488,8 @@ def pytucab():
 		is_correct = False
 		while not is_correct:
 			is_correct = True
-			print ('PLEASE INPUT DATETIME AS FOLLOWS (ENTER USE DEFAULT VALUE):')
-			print ('date: 0407 \nstart time: 17:30\nend time: 21:30')
+			print ('PLEASE INPUT DATETIME AS FOLLOWS (\"ENTER\" USE DEFAULT VALUE):')
+			print ('date must be between current date and the day after tomorrow!\ndate: 0407 \nstart time: 17:30\nend time: 21:30')
 			date = input('date: ')
 			if date != '':
 				date = time.strftime('%Y') + date
@@ -469,7 +499,7 @@ def pytucab():
 			ed = input('end time: ')
 			if ed != '':
 				e = ed
-			if not time_is_correct(s, e) or not date_is_correct(date):
+			if not time_is_correct(s, e) or not date_is_correct(date, latest_date()):
 				is_correct = False
 				print ('INPUT ERROR!\n')
 
