@@ -100,8 +100,8 @@ def latest_date():
 	year, month, day = int(year), int(month), int(day)
 	day += 2
 	flag = is_leap(year)
-	if day > m[flag][month]:
-		day -= m[flag][month]
+	if day > m[flag][month-1]:
+		day -= m[flag][month-1]
 		month += 1
 		if month > 12:
 			month -= 12
